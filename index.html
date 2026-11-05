@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>创业路演模拟器 · 文字冒险</title>
+<style>
+  :root{
+    --bg:#F7F6F2; --card:#FFFFFF; --ink:#17181C; --sub:#6B6B66;
+    --line:#E5E2DA; --accent:#2347D6; --accent-soft:#EEF1FD;
+    --warm:#C2410C; --warm-soft:#FDF0E8; --ok:#1A7F4E;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    height:100vh; height:100dvh; /* 动态视口：手机键盘弹出时自动压缩，聊天区不被遮 */
+    background:var(--bg); color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+  header#topbar{
+    flex:none; background:rgba(247,246,242,.94); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line); padding:10px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  }
+  .brand{font-weight:800; font-size:15px; letter-spacing:.5px;}
+  .brand small{color:var(--sub); font-weight:400; margin-left:6px;}
+  .model-chip{font-size:11px; color:var(--sub); border:1px solid var(--line); border-radius:20px; padding:2px 10px;}
+  .model-chip.on{color:var(--accent); border-color:var(--accent); background:var(--accent-soft);}
+  #hud{display:flex; gap:12px; flex-wrap:wrap;}
+  .hud-item{min-width:70px;}
+  .hud-item .hl{font-size:11px; color:var(--sub);}
+  .hud-bar{height:4px; background:#E9E6DE; border-radius:2px; margin-top:2px; overflow:hidden;}
+  .hud-bar i{display:block; height:100%; background:var(--accent); border-radius:2px; transition:width .5s ease;}
+  .hud-item.money .hud-bar i{background:var(--warm);}
+  .round-dots{display:flex; gap:5px; align-items:center;}
+  .rdot{width:20px; height:5px; border-radius:3px; background:#DDD9CE;}
+  .rdot.cur{background:var(--warm);}
+  .rdot.done{background:var(--accent);}
+  #chat{
+    flex:1; min-height:0; overflow-y:auto; width:100%; max-width:780px; margin:0 auto; padding:24px 18px 12px;
+  }
+  .msg{display:flex; gap:12px; margin-bottom:18px; animation:fadeUp .35s ease both;}
+  .msg.me{justify-content:flex-end;}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  .avatar{flex:none; width:40px; height:40px; border-radius:11px; background:var(--ink); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; margin-top:2px;}
+  .bubble{
+    background:var(--card); border:1px solid var(--line); border-radius:4px 14px 14px 14px;
+    padding:13px 17px; max-width:82%;
+  }
+  .bubble .who{font-size:11.5px; color:var(--accent); font-weight:800; margin-bottom:4px;}
+  .bubble .ev{border-left:3px solid var(--warm); background:var(--warm-soft); padding:8px 12px;
+    border-radius:0 8px 8px 0; margin-top:10px; font-size:14px;}
+  .bubble .ev b{font-size:11px; color:var(--warm); letter-spacing:2px; display:block;}
+  .bubble .verdict{margin-top:10px; font-size:12.5px; color:var(--accent); background:var(--accent-soft);
+    border-radius:8px; padding:6px 12px; display:inline-block;}
+  .msg.me .bubble{background:var(--accent); color:#fff; border:none; border-radius:14px 4px 14px 14px; max-width:82%;}
+  .qcard{background:var(--card); border:1.5px solid var(--accent); border-radius:12px; padding:14px 18px;
+    max-width:82%; animation:fadeUp .35s ease both; margin-bottom:18px;}
+  .qcard .qi{font-size:11.5px; color:var(--accent); font-weight:800; letter-spacing:1px;}
+  .qcard .qt{font-size:16px; font-weight:800; margin:4px 0 2px;}
+  .qcard .qq{font-size:14.5px; margin-top:4px;}
+  .statecard{background:var(--card); border:1px dashed var(--line); border-radius:12px; padding:10px 16px;
+    margin:0 auto 18px; max-width:560px; font-size:12.5px; color:var(--sub); text-align:center; animation:fadeUp .35s ease both;}
+  .statecard b{color:var(--ink);}
+  .scorechip{display:inline-block; font-size:12px; font-weight:800; color:#fff; background:var(--accent);
+    border-radius:20px; padding:1px 10px; margin-right:8px;}
+  .scorechip.low{background:var(--warm);}
+  .scorechip.high{background:var(--ok);}
+  .thinking .dots span{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--sub);
+    margin-right:4px; animation:blink 1.2s infinite;}
+  .thinking .dots span:nth-child(2){animation-delay:.2s;}
+  .thinking .dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;} 40%{opacity:1;}}
+  .errbox{background:var(--warm-soft); border:1px solid #F2DCCB; border-radius:10px; padding:10px 14px;
+    font-size:13px; color:var(--warm); margin-bottom:18px; animation:fadeUp .3s ease both;}
+  .errbox button{background:none; border:1.5px solid var(--warm); color:var(--warm); border-radius:8px;
+    padding:3px 14px; font-family:inherit; font-size:12.5px; cursor:pointer; margin-left:10px;}
+  .resultcard{background:var(--card); border:1.5px solid var(--ink); border-radius:14px; padding:22px 24px;
+    max-width:640px; margin:0 auto 18px; animation:fadeUp .4s ease both;}
+  .resultcard .kick{font-size:11px; color:var(--sub); letter-spacing:3px;}
+  .resultcard .tier{font-size:28px; font-weight:900; letter-spacing:1px; margin:2px 0 4px;}
+  .resultcard .val{font-size:17px; font-weight:900; color:var(--accent);}
+  .resultcard .dim{margin:8px 0;}
+  .resultcard .dim .dl{display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:3px;}
+  .resultcard .dim .db{height:6px; background:#EDEAE2; border-radius:3px; overflow:hidden;}
+  .resultcard .dim .db i{display:block; height:100%; background:var(--accent); border-radius:3px;}
+  .resultcard .icmt{border-top:1px dashed var(--line); padding:10px 0;}
+  .resultcard .icmt .iw{font-size:11.5px; color:var(--accent); font-weight:800;}
+  .resultcard .ending{background:var(--bg); border-radius:10px; padding:12px 16px; font-size:13.5px; margin-top:12px;}
+  #inputbar{
+    flex:none; border-top:1px solid var(--line); background:rgba(247,246,242,.96);
+    padding:12px 18px 16px;
+  }
+  #inputwrap{max-width:780px; margin:0 auto; display:flex; gap:10px; align-items:flex-end;}
+  #hint{max-width:780px; margin:0 auto 6px; font-size:11.5px; color:var(--sub); min-height:18px;}
+  #ainput{
+    flex:1; font-family:inherit; font-size:14.5px; padding:11px 14px; min-height:46px; max-height:140px;
+    border:1.5px solid var(--line); border-radius:12px; outline:none; resize:none; background:#fff; color:var(--ink);
+  }
+  #ainput:focus{border-color:var(--accent);}
+  #ainput:disabled{opacity:.55;}
+  #send{
+    flex:none; border:none; cursor:pointer; font-family:inherit; font-weight:700; font-size:14px;
+    background:var(--accent); color:#fff; padding:12px 24px; border-radius:12px;
+  }
+  #send:disabled{opacity:.4; cursor:not-allowed;}
+  #send:not(:disabled):hover{opacity:.92;}
+  /* 自备 Key 设置 */
+  .gear{background:transparent; border:1.5px solid var(--line); border-radius:8px; cursor:pointer;
+    font-family:inherit; font-size:11px; color:var(--sub); padding:2px 10px; transition:all .15s;}
+  .gear:hover{border-color:var(--accent); color:var(--accent);}
+  .modal-mask{display:none; position:fixed; inset:0; background:rgba(23,24,28,.45); z-index:50;
+    align-items:center; justify-content:center; padding:20px;}
+  .modal-mask.open{display:flex;}
+  .modal{background:var(--card); border-radius:14px; padding:22px; width:100%; max-width:440px;}
+  .modal h3{font-size:16px; font-weight:800; margin-bottom:6px;}
+  .modal .field{margin-top:12px;}
+  .modal label{font-size:12px; color:var(--sub); display:block; margin-bottom:4px;}
+  .modal input{width:100%; font-family:inherit; font-size:16px; padding:9px 12px;
+    border:1.5px solid var(--line); border-radius:8px; outline:none; background:#fff; color:var(--ink);}
+  .modal input:focus{border-color:var(--accent);}
+  .modal .row{display:flex; gap:10px; margin-top:16px;}
+  .btn2{flex:1; padding:9px 0; font-size:13.5px; border:none; cursor:pointer; font-family:inherit; font-weight:700; border-radius:10px;}
+  .btn2.primary{background:var(--accent); color:#fff;}
+  .btn2.ghost{background:none; border:1.5px solid var(--line); color:var(--sub);}
+  .modal .tip{font-size:11.5px; color:var(--sub); margin-top:10px; line-height:1.6;}
+  /* ============ 手机端紧凑排版 ============ */
+  @media (max-width:640px){
+    header#topbar{padding:6px 12px; gap:6px;}
+    .brand{font-size:13px;}
+    .brand small{display:none;}
+    .model-chip{font-size:10px; padding:1px 8px;}
+    /* 状态区压成一行纯文字，去掉占空间的进度小条 */
+    #hud{gap:7px;}
+    .hud-item{min-width:0;}
+    .hud-item .hl{font-size:10px;}
+    .hud-bar{display:none;}
+    .round-dots{gap:3px;}
+    .rdot{width:11px; height:4px;}
+    #chat{padding:14px 12px 6px;}
+    .msg{gap:8px; margin-bottom:12px;}
+    .avatar{width:30px; height:30px; border-radius:9px; font-size:14px;}
+    .bubble{max-width:88%; padding:10px 13px; font-size:14px;}
+    .msg.me .bubble{max-width:88%;}
+    .qcard{padding:11px 13px; max-width:92%;}
+    .qcard .qt{font-size:14.5px;}
+    .statecard{font-size:11px; padding:8px 10px; margin-bottom:12px;}
+    .resultcard{padding:16px 14px;}
+    .resultcard .tier{font-size:22px;}
+    #inputbar{padding:6px 10px calc(8px + env(safe-area-inset-bottom));}
+    #hint{font-size:10.5px; margin-bottom:3px;}
+    #inputwrap{gap:7px;}
+    /* 16px 防 iOS 聚焦自动放大 */
+    #ainput{padding:9px 12px; min-height:40px; font-size:16px;}
+    #send{padding:10px 14px; font-size:13px;}
+  }
+</style>
+</head>
+<body>
+<header id="topbar">
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <div class="brand">创业路演模拟器<small>文字冒险版 · 你来演，老K来判</small></div>
+    <div class="round-dots" id="roundDots"></div>
+  </div>
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+    <div style="display:flex; gap:6px; align-items:center;">
+      <span class="model-chip" id="modelChip" style="cursor:pointer;">AI 连接中…</span>
+      <button class="gear" id="btnGear" title="配置自备 API Key">Key</button>
+    </div>
+    <div id="hud"></div>
+  </div>
+</header>
+
+<div id="chat"></div>
+
+<div id="inputbar">
+  <div id="hint"></div>
+  <div id="inputwrap">
+    <textarea id="ainput" rows="1" maxlength="300" placeholder="直接打字：你想做什么，就写什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+    <button id="send">发送</button>
+  </div>
+</div>
+
+<!-- 自备 Key 设置弹窗 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>接入 AI</h3>
+    <p style="font-size:12px; color:var(--sub);">WorkBuddy 线上版自动免密钥。在 GitHub Pages 等其他域名，请填一个 OpenAI 兼容接口的 Key（只保存在本机浏览器）。</p>
+    <div class="field"><label>接口地址 Base URL</label><input type="text" id="cfgUrl" placeholder="https://open.bigmodel.cn/api/paas/v4"></div>
+    <div class="field"><label>API Key</label><input type="password" id="cfgKey" placeholder="sk-..."></div>
+    <div class="field"><label>模型名</label><input type="text" id="cfgModel" placeholder="glm-4-flash"></div>
+    <div class="row">
+      <button class="btn2 ghost" id="btnClearCfg">清除</button>
+      <button class="btn2 primary" id="btnSaveCfg">保存</button>
+    </div>
+    <p class="tip">推荐智谱 GLM：open.bigmodel.cn/api/paas/v4，模型 glm-4-flash。清除后若本域名无云端 AI，将无法进行游戏。</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
+<script>
+"use strict";
+
+/* ============ 云端免密钥 AI（WorkBuddy Cloud） ============ */
+const cloud = WorkBuddyCloud.createWorkBuddyCloud({
+  endpoint: "https://startup-roadshow.app.workbuddy.host",
+  oauthRelayBaseUrl: "https://www.workbuddy.cn/v2/as/genie-baas/oauth",
+  publishableKey: "wbpk_qpgnslD6yQwKpyUOuW0sR1_6Yl7f2vT84ZZR7ziszH0D5kRI002g7oZ"
+});
+let MODEL_ID = null, MODEL_LABEL = "";
+let cloudOk = null; /* null=检测中 true=可用 false=此域名不可用 */
+function getCfg(){
+  try{ return JSON.parse(localStorage.getItem("roadshow_llm_cfg")||"null"); }catch(e){ return null; }
+}
+function localReady(){ const c=getCfg(); return !!(c&&c.url&&c.key&&c.model); }
+function updateChip(){
+  const chip = $("modelChip");
+  chip.classList.remove("on");
+  if(MODEL_ID){ chip.textContent = "AI 已就绪 · WorkBuddy"; chip.classList.add("on"); }
+  else if(localReady()){ chip.textContent = "AI 已就绪 · 自备Key"; chip.classList.add("on"); }
+  else if(cloudOk === false){ chip.textContent = "AI 未接入 · 点此配置"; }
+  else { chip.textContent = "AI 连接中…"; }
+}
+async function ensureModel(){
+  if(MODEL_ID) return;
+  try{
+    const models = await cloud.llm.models.list();
+    const m = models.find(x => x.disabled !== true);
+    if(m){ MODEL_ID = m.id; MODEL_LABEL = m.name || m.id; }
+    else cloudOk = false;
+  }catch(e){ cloudOk = false; }
+  updateChip();
+}
+
+/* ============ 真实市场背景（2026-11 据公开报道整理） ============ */
+const MARKET_CONTEXT = "2026年的中国一级市场是近年大年：上半年新募基金3981只、规模约1.05万亿元（同比+49.6%）；投资案例5944起、金额约5654亿元（同比+31.9%），超六成流向科技企业。AI是绝对主角：上半年AI赛道融资1203起、总额约3077亿元，已超过2025年全年，占全市场融资额近一半（每投出2元就有近1元进AI）；人形机器人/具身智能（约875亿元）和软件与信息服务（约874亿元）紧随其后。智谱、MiniMax等公司上市，估值半年翻数倍的项目频出，“泡沫”成为行业最高频词，一线机构普遍“谨慎乐观”，强调回归产品与真实商业化能力。资金和项目向少数热门赛道、少数团队高度集中，中间赛道几乎无人问津。投早、投小成为主流，退出渠道多元化，硬科技的对赌回购条款收紧。";
+
+/* ============ 游戏状态 ============ */
+let G = null;
+let busy = false;
+let currentQuestion = null;
+let qaCount = 0;
+
+function newGame(){
+  return {
+    phase: "setup", round: 0,
+    companyName: "", track: "",
+    money: 500, product: 15, users: 8, morale: 70, reputation: 50,
+    qaScores: [], feasList: [],
+    history: [],
+    conversationId: "g_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8)
+  };
+}
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function applyChanges(c){
+  if(!c) return;
+  G.money      = clamp(G.money      + (parseInt(c.money,10)||0),      0, 999999);
+  G.product    = clamp(G.product    + (parseInt(c.product,10)||0),    0, 100);
+  G.users      = clamp(G.users      + (parseInt(c.users,10)||0),      0, 100);
+  G.morale     = clamp(G.morale     + (parseInt(c.morale,10)||0),     0, 100);
+  G.reputation = clamp(G.reputation + (parseInt(c.reputation,10)||0), 0, 100);
+  renderHUD();
+}
+function stateLine(){
+  return "公司「"+(G.companyName||"未定")+"」（"+(G.track||"未定")+"），第"+G.round+"/5季度。资金"+G.money+"万元，产品完成度"+G.product+"/100，用户规模"+G.users+"/100，团队士气"+G.morale+"/100，市场口碑"+G.reputation+"/100。历次决策可行性分："+(G.feasList.length?G.feasList.join("、"):"无")+"。";
+}
+
+/* ============ 提示词 ============ */
+const COMMON_RULES = [
+  "【铁律】",
+  "1. 只输出一个 JSON 对象：不要 markdown 代码块、不要任何解释文字。",
+  "2. 数值诚实：效果必须符合现实常识与当前状态；changes 单项变化通常在 -30 到 +30 之间（money 例外，融资最多 +300）。什么都不发生时 changes 全为 0。",
+  "3. 玩家输入空洞、矛盾、明显不靠谱 → 效果打折，并在 reply 里毒舌点破；违法、出格或与创业无关的输入 → 直接拒绝（changes 全 0），不许推进剧情。",
+  "4. 每个经营季度约一半概率发生一个突发事件（竞品动作、政策变化、舆情、核心员工问题、意外走红等，参考真实商业世界），写入 event 字段并说明其影响；没有事件就给空字符串。",
+  "5. feasibility：0-100 整数，代表该决策在当前真实市场环境下的可行性。",
+  "6. 语言风格：毒舌、犀利、接地气，像见过一万个股东和一万次失败的创业老江湖；不用 emoji；称呼玩家为“老板”。叙述要具体、有画面感，像在讲一个真实创业公司的故事。"
+].join("\n");
+
+const SCHEMA_ACTION = '输出格式：{"reply":"老K的回应与季度经营结果叙述（80-160字）","event":"突发事件描述（没有则空字符串）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个决策（不超过30字）"}';
+const SCHEMA_SETUP  = '输出格式：{"companyName":"给公司起的名字（8字以内，玩家已提过名字就沿用）","track":"赛道一句话定位","assessment":"结合真实市场行情对该方向的可行性评估（80-130字，说真话，不乐观其成）","reply":"老K的开场回应（60-100字，确认开档，告知初始资金500万、5个季度后路演）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个方向"}';
+const SCHEMA_PITCH  = '输出格式：{"reply":"投资人席听完陈词的现场反应与串场（80-140字）","question":{"investor":"投资人名字","title":"机构与职位","text":"第一个尖锐问题（结合该公司真实数据与当前市场行情）"}}';
+const SCHEMA_QA     = '输出格式：{"score":0,"comment":"这位投资人对回答的犀利点评（60字以内）","next":{"investor":"下一位投资人名字","title":"机构与职位","text":"下一个尖锐问题"}}。注意：若这是第4个问题，next 必须为 null。';
+const SCHEMA_FINAL  = '输出格式：{"comments":[{"name":"投资人名字","title":"机构与职位","text":"这位投资人的最终点评（40-80字）"},{"name":"...","title":"...","text":"..."},{"name":"...","title":"...","text":"..."}],"ending":"结局旁白（80-150字，有画面感地收尾）"}';
+
+function systemPrompt(){
+  return "你是文字冒险游戏《创业路演模拟器》唯一的主持人兼评委——创业管理员“老K”。玩家扮演创业者，一切决策都靠自由输入的文字，你负责叙述、判定真伪与可行性、推进剧情。\n\n" +
+  "当前真实时间：2026年11月。评判一切创业方向、经营动作与路演表现时，必须结合你掌握的截至目前的真实市场行情、行业新闻与资本环境，不要凭空想象一个市场。\n\n" +
+  "【真实市场背景（2026年11月，据公开报道整理）】\n" + MARKET_CONTEXT + "\n\n" +
+  "【当前游戏状态】\n" + stateLine() + "\n\n" +
+  COMMON_RULES + "\n\n【本阶段输出格式】\n" + schemaForPhase();
+}
+function schemaForPhase(){
+  switch(G.phase){
+    case "setup":  return SCHEMA_SETUP;
+    case "round":  return SCHEMA_ACTION;
+    case "action": return SCHEMA_ACTION;
+    case "pitch":  return SCHEMA_PITCH;
+    case "qa":     return SCHEMA_QA;
+    case "result": return SCHEMA_FINAL;
+    default:       return SCHEMA_ACTION;
+  }
+}
+
+/* ============ AI 调用 ============ */
+function parseJSON(s){
+  let t = String(s).trim().replace(/^```(json)?/,"").replace(/```$/,"").trim();
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if(a >= 0 && b > a) t = t.slice(a, b + 1);
+  return JSON.parse(t);
+}
+function buildMessages(userContent){
+  return [{ role:"system", content: systemPrompt() }]
+    .concat(G.history.slice(-12))
+    .concat([{ role:"user", content:userContent }]);
+}
+async function cloudChat(userContent, maxTokens){
+  let out = "";
+  for await (const chunk of cloud.llm.chat.completions.create({
+    model: MODEL_ID,
+    messages: buildMessages(userContent),
+    stream: true,
+    temperature: 0.85,
+    max_tokens: maxTokens || 800,
+    conversationId: G.conversationId
+  })){
+    const d = chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content;
+    if(d) out += d;
+  }
+  if(!out) throw new Error("模型返回为空");
+  return out;
+}
+async function localChat(userContent, maxTokens){
+  const c = getCfg();
+  const res = await fetch(c.url.replace(/\/+$/,"") + "/chat/completions", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+c.key},
+    body: JSON.stringify({ model:c.model, messages:buildMessages(userContent), stream:true, temperature:0.85, max_tokens:maxTokens||800 })
+  });
+  if(!res.ok) throw new Error("接口返回 HTTP "+res.status);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf="", out="";
+  while(true){
+    const r = await reader.read();
+    if(r.done) break;
+    buf += dec.decode(r.value, {stream:true});
+    const lines = buf.split("\n"); buf = lines.pop();
+    for(const line of lines){
+      const s = line.trim();
+      if(!s.startsWith("data:")) continue;
+      const data = s.slice(5).trim();
+      if(data==="[DONE]") continue;
+      try{
+        const j = JSON.parse(data);
+        const d = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+        if(d) out += d;
+      }catch(e){}
+    }
+  }
+  if(!out) throw new Error("模型返回为空");
+  return out;
+}
+async function aiCall(userContent, maxTokens){
+  if(MODEL_ID) return cloudChat(userContent, maxTokens);
+  if(localReady()) return localChat(userContent, maxTokens);
+  throw new Error("这个域名连不上 WorkBuddy 免密钥 AI，也未配置自备 Key——点右上角「Key」填一个 OpenAI 兼容接口即可开玩");
+}
+async function ask(maxTokens, userContent){
+  const t = showThinking();
+  try{
+    const out = await aiCall(userContent, maxTokens);
+    const j = parseJSON(out);
+    G.history.push({ role:"user", content:userContent });
+    G.history.push({ role:"assistant", content: out });
+    return j;
+  } finally { t.remove(); }
+}
+
+/* ============ 渲染 ============ */
+const $ = id => document.getElementById(id);
+const chat = $("chat");
+function scrollBottom(){ chat.scrollTop = chat.scrollHeight; }
+function addKCard(text, ev, feas, verdict){
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = '<div class="avatar">K</div><div class="bubble"><div class="who">老K · 创业管理员</div></div>';
+  const bubble = div.querySelector(".bubble");
+  const p = document.createElement("div"); p.textContent = text; bubble.appendChild(p);
+  if(ev){
+    const e = document.createElement("div"); e.className = "ev";
+    e.innerHTML = "<b>突发事件</b>";
+    const s = document.createElement("span"); s.textContent = ev; e.appendChild(s);
+    bubble.appendChild(e);
+  }
+  if(feas !== undefined && feas !== null){
+    const v = document.createElement("div"); v.className = "verdict";
+    v.textContent = "可行性 " + feas + "/100" + (verdict ? " · " + verdict : "");
+    bubble.appendChild(v);
+  }
+  chat.appendChild(div); scrollBottom();
+}
+function addMe(text){
+  const div = document.createElement("div");
+  div.className = "msg me";
+  div.innerHTML = '<div class="bubble"></div>';
+  div.querySelector(".bubble").textContent = text;
+  chat.appendChild(div); scrollBottom();
+}
+function addStateCard(){
+  const div = document.createElement("div");
+  div.className = "statecard";
+  div.innerHTML = "公司 <b></b> · <span class=\"trk\"></span><br>资金 <b></b> · 产品 <b></b> · 用户 <b></b> · 士气 <b></b> · 口碑 <b></b>";
+  const bs = div.querySelectorAll("b");
+  bs[0].textContent = G.companyName || "未定";
+  bs[1].textContent = "¥" + G.money + "万";
+  bs[2].textContent = G.product;
+  bs[3].textContent = G.users;
+  bs[4].textContent = G.morale;
+  bs[5].textContent = G.reputation;
+  div.querySelector(".trk").textContent = G.track || "";
+  chat.appendChild(div); scrollBottom();
+}
+function addQuestion(q){
+  const div = document.createElement("div");
+  div.className = "qcard";
+  div.innerHTML = '<div class="qi">投资人提问</div><div class="qt"></div><div class="qq"></div>';
+  div.querySelector(".qt").textContent = q.investor + " · " + q.title;
+  div.querySelector(".qq").textContent = q.text;
+  chat.appendChild(div); scrollBottom();
+}
+function addScoreBubble(name, comment, score){
+  const div = document.createElement("div");
+  div.className = "msg";
+  const cls = score >= 80 ? "high" : (score < 55 ? "low" : "");
+  div.innerHTML = '<div class="avatar" style="background:var(--sub);">评</div><div class="bubble"><div class="who">现场评分</div><div><span class="scorechip '+cls+'"></span><span class="ctext"></span></div></div>';
+  div.querySelector(".scorechip").textContent = score + " 分";
+  div.querySelector(".ctext").textContent = name + "：" + comment;
+  chat.appendChild(div); scrollBottom();
+}
+function showThinking(){
+  const div = document.createElement("div");
+  div.className = "msg thinking";
+  div.innerHTML = '<div class="avatar">K</div><div class="bubble"><div class="dots"><span></span><span></span><span></span></div></div>';
+  chat.appendChild(div); scrollBottom();
+  return div;
+}
+function addError(msg, retryText){
+  const div = document.createElement("div");
+  div.className = "errbox";
+  div.innerHTML = '<span class="etext"></span>';
+  div.querySelector(".etext").textContent = "AI 调用失败：" + msg;
+  if(retryText !== undefined){
+    const b = document.createElement("button");
+    b.textContent = "重试";
+    b.addEventListener("click", async ()=>{
+      div.remove();
+      busy = true; setInput(false);
+      try{ await runPhase(retryText); }
+      catch(e){ addError(e && e.message ? e.message : String(e), retryText); }
+      busy = false;
+      if(G.phase === "action" || G.phase === "pitch" || G.phase === "qa") setInput(true);
+    });
+    div.appendChild(b);
+  }
+  chat.appendChild(div); scrollBottom();
+}
+function renderHUD(){
+  const items = [
+    {k:"money", l:"资金 ¥"+G.money+"万", v:clamp(G.money/600*100,4,100)},
+    {k:"product", l:"产品 "+G.product, v:G.product},
+    {k:"users", l:"用户 "+G.users, v:G.users},
+    {k:"morale", l:"士气 "+G.morale, v:G.morale},
+    {k:"reputation", l:"口碑 "+G.reputation, v:G.reputation}
+  ];
+  $("hud").innerHTML = items.map(i=>
+    '<div class="hud-item '+i.k+'"><div class="hl">'+i.l+'</div><div class="hud-bar"><i style="width:'+i.v+'%"></i></div></div>'
+  ).join("");
+}
+function renderDots(){
+  let html = "";
+  if(G.phase==="pitch"||G.phase==="qa"||G.phase==="result"){
+    for(let i=1;i<=5;i++) html += '<span class="rdot done"></span>';
+  } else {
+    for(let i=1;i<=5;i++){
+      const c = i < G.round ? " done" : (i === G.round ? " cur" : "");
+      html += '<span class="rdot'+c+'"></span>';
+    }
+  }
+  $("roundDots").innerHTML = html;
+}
+function setHint(t){ $("hint").textContent = t; }
+function setInput(on){
+  $("ainput").disabled = !on;
+  $("send").disabled = !on;
+  if(on) $("ainput").focus();
+}
+
+/* ============ 阶段流程 ============ */
+async function runPhase(text){
+  switch(G.phase){
+    case "setup":   return doSetup(text);
+    case "action":  return doAction(text);
+    case "pitch":   return doPitch(text);
+    case "qa":      return doQA(text);
+    default:        return;
+  }
+}
+async function doSetup(text){
+  const j = await ask(800, "【开档】创始人第一次开口，描述了自己想做的事：\n" + text);
+  G.companyName = String(j.companyName||"无名校创").slice(0,10);
+  G.track = String(j.track||"").slice(0,40);
+  applyChanges(j.changes);
+  const feas0 = clamp(parseInt(j.feasibility,10)||50,0,100);
+  G.feasList.push(feas0);
+  addKCard(j.reply || "开档。");
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = '<div class="avatar">K</div><div class="bubble"><div class="who">老K的市场评估</div><div class="atext"></div><div class="verdict" style="margin-top:8px;"></div></div>';
+  div.querySelector(".atext").textContent = j.assessment || "";
+  div.querySelector(".verdict").textContent = "方向可行性 " + feas0 + "/100 · " + (j.verdict||"");
+  chat.appendChild(div); scrollBottom();
+  addStateCard();
+  G.history.length = 0; /* 开档定案，精简上下文 */
+  G.phase = "round";
+  setInput(false);
+  await startRound();
+}
+async function startRound(){
+  renderDots();
+  setHint("AI 正在生成第 " + (G.round+1) + " 季度简报…");
+  const j = await ask(600, "【系统】第" + (G.round+1) + "季度开始。请在 reply 字段输出本季度简报：结合真实市场行情和公司现状，谈当前最该关注什么，并给一条具体建议。本季度暂不发生事件（event 为空字符串，changes 全 0）。");
+  G.round++;
+  renderDots();
+  addKCard(j.reply || "新的一季度开始了。");
+  addStateCard();
+  G.phase = "action";
+  setHint("第 " + G.round + "/5 季度 · 直接打字输入你这个季度要干的事");
+  setInput(true);
+}
+async function doAction(text){
+  const j = await ask(800, "【第" + G.round + "季度决策】创始人宣布这个季度要干的事：\n" + text);
+  applyChanges(j.changes);
+  const feas = clamp(parseInt(j.feasibility,10)||50,0,100);
+  G.feasList.push(feas);
+  addKCard(j.reply || "……", j.event || "", feas, j.verdict || "");
+  addStateCard();
+  if(G.money <= 0){ return bankrupt(); }
+  if(G.round >= 5){ return enterPitch(); }
+  G.phase = "round";
+  setInput(false);
+  await startRound();
+}
+function enterPitch(){
+  G.phase = "pitch";
+  renderDots();
+  addKCard("五个季度，跑完了。账上还剩 ¥" + G.money + " 万——下周就是路演日，台下坐着四个不好糊弄的投资人。现在，把你的路演陈词打出来（建议 200 字以内）：你是谁、做的是什么、凭什么是你。说服他们。");
+  setHint("输入你的路演陈词，说服投资人");
+  setInput(true);
+}
+async function doPitch(text){
+  setHint("投资人席正在听…");
+  const j = await ask(700, "【路演】创始人开始路演，陈词如下：\n" + text + "\n请输出投资人席的现场反应（reply），并给出第一个提问（question）。整场共 4 个问题。");
+  addKCard(j.reply || "投资人席安静了几秒。");
+  if(!j.question || !j.question.text) throw new Error("主持人没有生成提问");
+  currentQuestion = j.question;
+  qaCount = 1;
+  addQuestion(currentQuestion);
+  G.phase = "qa";
+  setHint("第 " + qaCount + "/4 问 · 用你自己的话回答，投资人手里有你的真实数据");
+  setInput(true);
+}
+async function doQA(text){
+  setHint("评委正在记录…");
+  const j = await ask(500, "【路演问答·第" + qaCount + "问】问题来自「" + currentQuestion.investor + "（" + currentQuestion.title + "）」：『" + currentQuestion.text + "』\n创始人的回答：\n" + text + (qaCount>=4 ? "\n这是最后一问，next 必须为 null。" : ""));
+  const score = clamp(parseInt(j.score,10)||50,0,100);
+  G.qaScores.push(score);
+  addScoreBubble(currentQuestion.investor, j.comment || "", score);
+  if(qaCount >= 4 || !j.next || !j.next.text){ return finishGame(); }
+  currentQuestion = j.next;
+  qaCount++;
+  addQuestion(currentQuestion);
+  setHint("第 " + qaCount + "/4 问 · 继续作答");
+  setInput(true);
+}
+
+/* ============ 结算 ============ */
+function metricScore(){
+  const nm = clamp(G.money/400*100, 0, 100);
+  return Math.round(0.28*nm + 0.27*G.product + 0.25*G.users + 0.12*G.reputation + 0.08*G.morale);
+}
+function tierOf(i){
+  if(i>=85) return {t:"资本哄抢", d:"路演刚结束，两位合伙人把你堵在会议室里抢份额。", m:1.35};
+  if(i>=70) return {t:"顺利拿到 TS", d:"干净利落。Term Sheet 当晚发到你邮箱，条款比预期还体面。", m:1.0};
+  if(i>=55) return {t:"口头意向，条款苛刻", d:"有人愿意投，但对赌、回购、压价一个不少。签，还是再谈谈？", m:0.7};
+  if(i>=40) return {t:"礼貌拒绝", d:"“项目很好，我们保持联系。”这句话你今天听到了四遍。", m:0};
+  return {t:"无人出价", d:"会议室的灯还没关。老K拍拍你的肩：“回去改，下个月再来。”", m:0};
+}
+async function finishGame(){
+  setInput(false);
+  renderDots();
+  const mS = metricScore();
+  const qaAvg = Math.round(G.qaScores.reduce((a,b)=>a+b,0)/Math.max(1,G.qaScores.length));
+  const feasAvg = Math.round(G.feasList.reduce((a,b)=>a+b,0)/Math.max(1,G.feasList.length));
+  const interest = clamp(Math.round(mS*0.45 + qaAvg*0.40 + feasAvg*0.15), 0, 100);
+  const tier = tierOf(interest);
+
+  setHint("AI 正在写投资人的最终点评…");
+  let j = null;
+  try{
+    j = await ask(700, "【结算】路演结束。公司最终数据：资金" + G.money + "万、产品" + G.product + "、用户" + G.users + "、士气" + G.morale + "、口碑" + G.reputation + "。最终评分 " + interest + "/100（档位：" + tier.t + "）。请在 comments 里以三位投资人（自拟名字与机构，风格要不同：一位看壁垒、一位算账、一位看产业协同）的口吻写最终点评，在 ending 里写结局旁白。点评必须引用这家公司的真实数据与表现，好的地方夸，差的地方刺。");
+  }catch(e){ /* 结算 AI 失败不阻塞结果展示 */ }
+
+  let valuationHtml = '<span style="color:var(--sub);">本轮未获得估值报价</span>';
+  if(tier.m > 0){
+    const baseVal = Math.max(G.users*10 + G.product*12 + G.reputation*4, Math.round((G.users*2.5 + G.reputation*0.4) * 12));
+    const val = Math.round(baseVal * (0.55 + interest/100*0.9) * tier.m);
+    valuationHtml = '投资人给出 <span class="val">投前估值 ¥' + val + ' 万</span><br><span style="font-size:12.5px;color:var(--sub);">拟投资 ¥' + Math.round(val*0.16) + ' 万 · 占股约 16%</span>';
+  }
+  const dims = [
+    ["业务基本盘", mS],
+    ["路演问答表现", qaAvg],
+    ["决策可行度（AI 结合真实行情评定）", feasAvg]
+  ];
+  let commentsHtml = "";
+  if(j && j.comments && j.comments.length){
+    commentsHtml = '<div style="margin-top:12px;">' + j.comments.map(()=>'<div class="icmt"><div class="iw"></div><div class="itext"></div></div>').join("") + '</div>';
+  }
+  const div = document.createElement("div");
+  div.className = "resultcard";
+  div.innerHTML =
+    '<div class="kick">'+ ((G.companyName||"你的公司") + " · 最终结算") +'</div>' +
+    '<div class="tier"></div>' +
+    '<div style="font-size:13.5px;color:var(--sub);margin-bottom:8px;" class="tdesc"></div>' +
+    '<div style="margin:10px 0;" class="vbox">'+valuationHtml+'</div>' +
+    dims.map(d=>'<div class="dim"><div class="dl"><span>'+d[0]+'</span><b>'+d[1]+'</b></div><div class="db"><i style="width:'+d[1]+'%"></i></div></div>').join("") +
+    commentsHtml +
+    ((j && j.ending) ? '<div class="ending"></div>' : '') +
+    '<div style="text-align:center; margin-top:16px;"><button class="rb" style="border:1.5px solid var(--accent); color:var(--accent); background:none; border-radius:10px; padding:9px 26px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;">再创一次业</button></div>';
+  div.querySelector(".tier").textContent = tier.t;
+  div.querySelector(".tier").style.color = tier.m>0 ? "var(--ink)" : "var(--warm)";
+  div.querySelector(".tdesc").textContent = tier.d;
+  if(j && j.comments && j.comments.length){
+    const iws = div.querySelectorAll(".iw"), its = div.querySelectorAll(".itext");
+    j.comments.forEach((c,i)=>{ if(iws[i]){ iws[i].textContent = (c.name||"投资人") + " · " + (c.title||""); its[i].textContent = c.text||""; } });
+  }
+  if(j && j.ending) div.querySelector(".ending").textContent = j.ending;
+  div.querySelector(".rb").addEventListener("click", ()=>location.reload());
+  chat.appendChild(div); scrollBottom();
+  G.phase = "result";
+  setHint("本局结束 · 点「再创一次业」开新档");
+}
+function bankrupt(){
+  G.phase = "result";
+  renderDots();
+  const div = document.createElement("div");
+  div.className = "resultcard";
+  div.innerHTML =
+    '<div class="kick">GAME OVER</div>' +
+    '<div class="tier" style="color:var(--warm);">资金链断裂</div>' +
+    '<div style="font-size:13.5px;color:var(--sub);">账上没钱了。创业未半，倒在路演台之前。老K最后说了一句：“钱不是万能的，但没钱是万万不能的——下局记得留后手。”</div>' +
+    '<div style="text-align:center; margin-top:16px;"><button class="rb" style="border:1.5px solid var(--accent); color:var(--accent); background:none; border-radius:10px; padding:9px 26px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;">再创一次业</button></div>';
+  div.querySelector(".rb").addEventListener("click", ()=>location.reload());
+  chat.appendChild(div); scrollBottom();
+  setHint("本局结束");
+}
+
+/* ============ 输入 ============ */
+async function submit(){
+  if(busy) return;
+  const ta = $("ainput");
+  const text = ta.value.trim();
+  if(!text) return;
+  busy = true; setInput(false);
+  ta.value = ""; ta.style.height = "auto";
+  addMe(text);
+  try{
+    await runPhase(text);
+  }catch(e){
+    addError(e && e.message ? e.message : String(e), text);
+  }
+  busy = false;
+  if(G.phase === "action" || G.phase === "pitch" || G.phase === "qa") setInput(true);
+}
+$("send").addEventListener("click", submit);
+$("ainput").addEventListener("keydown", e=>{
+  if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); submit(); }
+});
+$("ainput").addEventListener("input", function(){
+  this.style.height = "auto";
+  this.style.height = Math.min(140, this.scrollHeight) + "px";
+});
+/* 手机上键盘弹出时，保持最新消息可见 */
+$("ainput").addEventListener("focus", function(){
+  setTimeout(scrollBottom, 250);
+  setTimeout(scrollBottom, 600);
+});
+
+/* ============ 启动 ============ */
+$("btnGear").addEventListener("click", ()=>{
+  const c = getCfg()||{};
+  $("cfgUrl").value = c.url||""; $("cfgKey").value = c.key||""; $("cfgModel").value = c.model||"";
+  $("modalMask").classList.add("open");
+});
+$("modelChip").addEventListener("click", ()=>{ if(!MODEL_ID) $("btnGear").click(); });
+$("modalMask").addEventListener("click", e=>{ if(e.target===$("modalMask")) $("modalMask").classList.remove("open"); });
+$("btnSaveCfg").addEventListener("click", ()=>{
+  localStorage.setItem("roadshow_llm_cfg", JSON.stringify({
+    url:$("cfgUrl").value.trim(), key:$("cfgKey").value.trim(), model:$("cfgModel").value.trim()
+  }));
+  $("modalMask").classList.remove("open");
+  updateChip();
+});
+$("btnClearCfg").addEventListener("click", ()=>{
+  localStorage.removeItem("roadshow_llm_cfg");
+  $("modalMask").classList.remove("open");
+  updateChip();
+});
+(async function boot(){
+  G = newGame();
+  renderHUD(); renderDots();
+  await ensureModel();
+  addKCard("我是老K，你的创业管理员。这局游戏只有一条规则：\n想干什么，直接打字告诉我——选什么方向、烧什么钱、怼什么人，都随你。我来告诉你这事儿在现在的真实市场里行不行得通。\n\n五个季度之后，你将带着这家公司站上路演台，面对四个不好糊弄的投资人。\n\n所以——老板，你想创什么业？（直接描述你的想法，越具体越好）");
+  setHint("输入你想做的创业方向");
+  setInput(true);
+})();
+</script>
+</body>
+</html>
