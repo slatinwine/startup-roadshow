@@ -127,6 +127,22 @@
   .btn2.primary{background:var(--accent); color:#fff;}
   .btn2.ghost{background:none; border:1.5px solid var(--line); color:var(--sub);}
   .modal .tip{font-size:11.5px; color:var(--sub); margin-top:10px; line-height:1.6;}
+  /* 云应用跳转横幅（仅 GitHub Pages 等无云端 AI 的域名显示） */
+  #jumpBanner{display:none; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
+    background:var(--accent-soft); border-bottom:1px solid var(--line);
+    padding:10px 16px; font-size:13px; color:var(--ink);}
+  #jumpBanner.show{display:flex;}
+  #jumpBanner .jt{line-height:1.5;}
+  #jumpBanner b{color:var(--accent);}
+  #jumpBtn{border:none; cursor:pointer; font-family:inherit; font-weight:700; font-size:13px;
+    background:var(--accent); color:#fff; border-radius:9px; padding:8px 18px;}
+  #jumpBtn:hover{opacity:.92;}
+  #jumpClose{border:none; background:none; cursor:pointer; font-size:16px; color:var(--sub);
+    padding:2px 6px; line-height:1;}
+  @media (max-width:640px){
+    #jumpBanner{padding:8px 12px; gap:8px; font-size:12px;}
+    #jumpBtn{padding:7px 14px; font-size:12px;}
+  }
   /* ============ 手机端紧凑排版 ============ */
   @media (max-width:640px){
     header#topbar{padding:6px 12px; gap:6px;}
@@ -173,6 +189,13 @@
     <div id="hud"></div>
   </div>
 </header>
+
+<!-- GitHub Pages 版：跳转到云应用 -->
+<div id="jumpBanner">
+  <span class="jt">GitHub Pages 版需要自备 API Key。推荐去 <b>WorkBuddy 云应用版</b>，免 Key 直接玩：</span>
+  <button id="jumpBtn">前往完整版</button>
+  <button id="jumpClose" title="关闭">×</button>
+</div>
 
 <div id="chat"></div>
 
@@ -734,6 +757,18 @@ $("btnClearCfg").addEventListener("click", ()=>{
   $("modalMask").classList.remove("open");
   updateChip();
 });
+/* GitHub Pages 等无云端 AI 的域名：显示跳转云应用横幅（关闭后记住不再显示） */
+const CLOUD_URL = "https://startup-roadshow.app.workbuddy.host/?sharecode=2XYZTXCFWS";
+(function initJumpBanner(){
+  if(location.hostname.indexOf("workbuddy.host") >= 0) return;
+  if(localStorage.getItem("roadshow_jump_dismissed") === "1") return;
+  $("jumpBanner").classList.add("show");
+  $("jumpBtn").addEventListener("click", ()=>{ window.open(CLOUD_URL, "_blank"); });
+  $("jumpClose").addEventListener("click", ()=>{
+    localStorage.setItem("roadshow_jump_dismissed", "1");
+    $("jumpBanner").classList.remove("show");
+  });
+})();
 (async function boot(){
   G = newGame();
   renderHUD(); renderDots();
