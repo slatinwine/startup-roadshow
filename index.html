@@ -281,13 +281,14 @@ let G = null;
 let busy = false;
 let currentQuestion = null;
 let qaCount = 0;
+const TOTAL_ROUNDS = 8; /* 8 个经营季度 */
 
 function newGame(){
   return {
     phase: "setup", round: 0,
     companyName: "", track: "",
     money: 500, product: 15, users: 8, morale: 70, reputation: 50,
-    qaScores: [], feasList: [],
+    qaScores: [], feasList: [], askedTopics: [],
     history: [],
     conversationId: "g_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8)
   };
@@ -303,7 +304,7 @@ function applyChanges(c){
   renderHUD();
 }
 function stateLine(){
-  return "公司「"+(G.companyName||"未定")+"」（"+(G.track||"未定")+"），第"+G.round+"/5季度。资金"+G.money+"万元，产品完成度"+G.product+"/100，用户规模"+G.users+"/100，团队士气"+G.morale+"/100，市场口碑"+G.reputation+"/100。历次决策可行性分："+(G.feasList.length?G.feasList.join("、"):"无")+"。";
+  return "公司「"+(G.companyName||"未定")+"」（"+(G.track||"未定")+"），第"+G.round+"/"+TOTAL_ROUNDS+"季度。资金"+G.money+"万元，产品完成度"+G.product+"/100，用户规模"+G.users+"/100，团队士气"+G.morale+"/100，市场口碑"+G.reputation+"/100。历次决策可行性分："+(G.feasList.length?G.feasList.join("、"):"无")+"。已追问过的务实事项："+(G.askedTopics.length?G.askedTopics.join("、"):"无")+"。";
 }
 
 /* ============ 提示词 ============ */
@@ -314,13 +315,16 @@ const COMMON_RULES = [
   "3. 玩家输入空洞、矛盾、明显不靠谱 → 效果打折，并在 reply 里毒舌点破；违法、出格或与创业无关的输入 → 直接拒绝（changes 全 0），不许推进剧情。",
   "4. 每个经营季度约一半概率发生一个突发事件（竞品动作、政策变化、舆情、核心员工问题、意外走红等，参考真实商业世界），写入 event 字段并说明其影响；没有事件就给空字符串。",
   "5. feasibility：0-100 整数，代表该决策在当前真实市场环境下的可行性。",
-  "6. 语言风格：毒舌、犀利、接地气，像见过一万个股东和一万次失败的创业老江湖；不用 emoji；称呼玩家为“老板”。叙述要具体、有画面感，像在讲一个真实创业公司的故事。"
+  "6. 语言风格：毒舌、犀利、接地气，像见过一万个股东和一万次失败的创业老江湖；不用 emoji；称呼玩家为“老板”。叙述要具体、有画面感，像在讲一个真实创业公司的故事。",
+  "7. 每季度主决策后，你要就一件早期创业公司绕不开的务实事项追问创始人（followup 字段）：工商注册与股权结构、记账报税、银行对公账户、ICP备案/算法备案、数据合规与隐私、代码合规（开源协议与依赖许可）、专利与商标、社保公积金、核心人脉与贵人资源、办公场地、竞品动向等。根据公司当前阶段挑最要命的一件问，问题要具体、有真实创业的细节感，不要重复问已追问过的话题。",
+  "8. 节奏：游戏共 8 个季度，是场长跑。资金消耗与成长要符合真实节奏，不要让玩家两三个季度就烧光 500 万或提前把数据做满。"
 ].join("\n");
 
-const SCHEMA_ACTION = '输出格式：{"reply":"老K的回应与季度经营结果叙述（80-160字）","event":"突发事件描述（没有则空字符串）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个决策（不超过30字）"}';
-const SCHEMA_SETUP  = '输出格式：{"companyName":"给公司起的名字（8字以内，玩家已提过名字就沿用）","track":"赛道一句话定位","assessment":"结合真实市场行情对该方向的可行性评估（80-130字，说真话，不乐观其成）","reply":"老K的开场回应（60-100字，确认开档，告知初始资金500万、5个季度后路演）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个方向"}';
+const SCHEMA_ACTION = '输出格式：{"reply":"老K的回应与季度经营结果叙述（80-160字）","event":"突发事件描述（没有则空字符串）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个决策（不超过30字）","followup":{"topic":"追问的务实事项类别（如：工商注册/记账报税/ICP备案/代码合规/专利商标/人脉资源）","text":"老K就这件事追问创始人的具体问题（40-70字，要有真实创业的细节感）"}}';
+const SCHEMA_SETUP  = '输出格式：{"companyName":"给公司起的名字（8字以内，玩家已提过名字就沿用）","track":"赛道一句话定位","assessment":"结合真实市场行情对该方向的可行性评估（80-130字，说真话，不乐观其成）","reply":"老K的开场回应（60-100字，确认开档，告知初始资金500万、8个季度后路演）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个方向"}';
 const SCHEMA_PITCH  = '输出格式：{"reply":"投资人席听完陈词的现场反应与串场（80-140字）","question":{"investor":"投资人名字","title":"机构与职位","text":"第一个尖锐问题（结合该公司真实数据与当前市场行情）"}}';
 const SCHEMA_QA     = '输出格式：{"score":0,"comment":"这位投资人对回答的犀利点评（60字以内）","next":{"investor":"下一位投资人名字","title":"机构与职位","text":"下一个尖锐问题"}}。注意：若这是第4个问题，next 必须为 null。';
+const SCHEMA_FOLLOWUP = '输出格式：{"reply":"老K根据创始人答复给出的判定与结果叙述（70-130字，回答靠谱就办得成，含糊敷衍就办不成或留尾巴）","changes":{"money":0,"product":0,"users":0,"morale":0,"reputation":0},"feasibility":0,"verdict":"一句话点评这个答复（不超过30字）"}';
 const SCHEMA_FINAL  = '输出格式：{"comments":[{"name":"投资人名字","title":"机构与职位","text":"这位投资人的最终点评（40-80字）"},{"name":"...","title":"...","text":"..."},{"name":"...","title":"...","text":"..."}],"ending":"结局旁白（80-150字，有画面感地收尾）"}';
 
 function systemPrompt(){
@@ -335,6 +339,7 @@ function schemaForPhase(){
     case "setup":  return SCHEMA_SETUP;
     case "round":  return SCHEMA_ACTION;
     case "action": return SCHEMA_ACTION;
+    case "followup": return SCHEMA_FOLLOWUP;
     case "pitch":  return SCHEMA_PITCH;
     case "qa":     return SCHEMA_QA;
     case "result": return SCHEMA_FINAL;
@@ -499,7 +504,7 @@ function addError(msg, retryText){
       try{ await runPhase(retryText); }
       catch(e){ addError(e && e.message ? e.message : String(e), retryText); }
       busy = false;
-      if(G.phase === "action" || G.phase === "pitch" || G.phase === "qa") setInput(true);
+      if(G.phase === "action" || G.phase === "followup" || G.phase === "pitch" || G.phase === "qa") setInput(true);
     });
     div.appendChild(b);
   }
@@ -520,9 +525,9 @@ function renderHUD(){
 function renderDots(){
   let html = "";
   if(G.phase==="pitch"||G.phase==="qa"||G.phase==="result"){
-    for(let i=1;i<=5;i++) html += '<span class="rdot done"></span>';
+    for(let i=1;i<=TOTAL_ROUNDS;i++) html += '<span class="rdot done"></span>';
   } else {
-    for(let i=1;i<=5;i++){
+    for(let i=1;i<=TOTAL_ROUNDS;i++){
       const c = i < G.round ? " done" : (i === G.round ? " cur" : "");
       html += '<span class="rdot'+c+'"></span>';
     }
@@ -541,6 +546,7 @@ async function runPhase(text){
   switch(G.phase){
     case "setup":   return doSetup(text);
     case "action":  return doAction(text);
+    case "followup": return doFollowup(text);
     case "pitch":   return doPitch(text);
     case "qa":      return doQA(text);
     default:        return;
@@ -576,7 +582,7 @@ async function startRound(){
   addKCard(j.reply || "新的一季度开始了。");
   addStateCard();
   G.phase = "action";
-  setHint("第 " + G.round + "/5 季度 · 直接打字输入你这个季度要干的事");
+  setHint("第 " + G.round + "/" + TOTAL_ROUNDS + " 季度 · 直接打字输入你这个季度要干的事");
   setInput(true);
 }
 async function doAction(text){
@@ -587,7 +593,34 @@ async function doAction(text){
   addKCard(j.reply || "……", j.event || "", feas, j.verdict || "");
   addStateCard();
   if(G.money <= 0){ return bankrupt(); }
-  if(G.round >= 5){ return enterPitch(); }
+  if(j.followup && j.followup.text){
+    G.phase = "followup";
+    G.currentTopic = String(j.followup.topic||"务实事项").slice(0,20);
+    if(!G.askedTopics.includes(G.currentTopic)) G.askedTopics.push(G.currentTopic);
+    const div = document.createElement("div");
+    div.className = "qcard";
+    div.innerHTML = '<div class="qi">老K追问 · 务实事项</div><div class="qt"></div><div class="qq"></div>';
+    div.querySelector(".qt").textContent = G.currentTopic;
+    div.querySelector(".qq").textContent = j.followup.text;
+    chat.appendChild(div); scrollBottom();
+    setHint("老K在等你的答复 · 想清楚再答，含糊会留尾巴");
+    setInput(true);
+  } else {
+    G.phase = "round";
+    setInput(false);
+    await startRound();
+  }
+}
+async function doFollowup(text){
+  setHint("老K在处理你的答复…");
+  const j = await ask(600, "【务实事项·" + G.currentTopic + "】老K追问后，创始人的答复：\n" + text);
+  applyChanges(j.changes);
+  const feas = clamp(parseInt(j.feasibility,10)||50,0,100);
+  G.feasList.push(feas);
+  addKCard(j.reply || "行，先这样。", "", feas, j.verdict || "");
+  addStateCard();
+  if(G.money <= 0){ return bankrupt(); }
+  if(G.round >= TOTAL_ROUNDS){ return enterPitch(); }
   G.phase = "round";
   setInput(false);
   await startRound();
@@ -595,7 +628,7 @@ async function doAction(text){
 function enterPitch(){
   G.phase = "pitch";
   renderDots();
-  addKCard("五个季度，跑完了。账上还剩 ¥" + G.money + " 万——下周就是路演日，台下坐着四个不好糊弄的投资人。现在，把你的路演陈词打出来（建议 200 字以内）：你是谁、做的是什么、凭什么是你。说服他们。");
+  addKCard(TOTAL_ROUNDS + "个季度，跑完了。账上还剩 ¥" + G.money + " 万——下周就是路演日，台下坐着四个不好糊弄的投资人。现在，把你的路演陈词打出来（建议 200 字以内）：你是谁、做的是什么、凭什么是你。说服他们。");
   setHint("输入你的路演陈词，说服投资人");
   setInput(true);
 }
@@ -721,7 +754,7 @@ async function submit(){
     addError(e && e.message ? e.message : String(e), text);
   }
   busy = false;
-  if(G.phase === "action" || G.phase === "pitch" || G.phase === "qa") setInput(true);
+  if(G.phase === "action" || G.phase === "followup" || G.phase === "pitch" || G.phase === "qa") setInput(true);
 }
 $("send").addEventListener("click", submit);
 $("ainput").addEventListener("keydown", e=>{
@@ -773,7 +806,7 @@ const CLOUD_URL = "https://startup-roadshow.app.workbuddy.host/?sharecode=2XYZTX
   G = newGame();
   renderHUD(); renderDots();
   await ensureModel();
-  addKCard("我是老K，你的创业管理员。这局游戏只有一条规则：\n想干什么，直接打字告诉我——选什么方向、烧什么钱、怼什么人，都随你。我来告诉你这事儿在现在的真实市场里行不行得通。\n\n五个季度之后，你将带着这家公司站上路演台，面对四个不好糊弄的投资人。\n\n所以——老板，你想创什么业？（直接描述你的想法，越具体越好）");
+  addKCard("我是老K，你的创业管理员。这局游戏只有一条规则：\n想干什么，直接打字告诉我——选什么方向、烧什么钱、怼什么人，都随你。我来告诉你这事儿在现在的真实市场里行不行得通。\n\n八个季度之后，你将带着这家公司站上路演台，面对四个不好糊弄的投资人。中途老K还会追问你那些绕不开的杂事——工商注册、备案、合规、人脉，一件都躲不掉。\n\n所以——老板，你想创什么业？（直接描述你的想法，越具体越好）");
   setHint("输入你想做的创业方向");
   setInput(true);
 })();
