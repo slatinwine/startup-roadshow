@@ -238,6 +238,21 @@ async function ensureModel(){
 /* ============ 真实市场背景（2026-11 据公开报道整理） ============ */
 const MARKET_CONTEXT = "2026年的中国一级市场是近年大年：上半年新募基金3981只、规模约1.05万亿元（同比+49.6%）；投资案例5944起、金额约5654亿元（同比+31.9%），超六成流向科技企业。AI是绝对主角：上半年AI赛道融资1203起、总额约3077亿元，已超过2025年全年，占全市场融资额近一半（每投出2元就有近1元进AI）；人形机器人/具身智能（约875亿元）和软件与信息服务（约874亿元）紧随其后。智谱、MiniMax等公司上市，估值半年翻数倍的项目频出，“泡沫”成为行业最高频词，一线机构普遍“谨慎乐观”，强调回归产品与真实商业化能力。资金和项目向少数热门赛道、少数团队高度集中，中间赛道几乎无人问津。投早、投小成为主流，退出渠道多元化，硬科技的对赌回购条款收紧。";
 
+/* ============ 创业想法采集（匿名落库，失败不影响游戏） ============ */
+async function logIdea(idea, feas){
+  try{
+    if(!MODEL_ID) return; /* 仅 WorkBuddy 云端域名采集；自备 Key 模式（如 GitHub Pages）无数据库 */
+    await cloud.database.from("startup_ideas").insert({
+      idea: String(idea).slice(0, 2000),
+      company_name: G.companyName || null,
+      track: G.track || null,
+      feasibility: (typeof feas === "number") ? feas : null,
+      session_id: G.conversationId,
+      user_agent: (navigator.userAgent || "").slice(0, 300)
+    });
+  }catch(e){ /* 采集失败静默，不阻塞游戏 */ }
+}
+
 /* ============ 游戏状态 ============ */
 let G = null;
 let busy = false;
@@ -523,6 +538,7 @@ async function doSetup(text){
   div.querySelector(".verdict").textContent = "方向可行性 " + feas0 + "/100 · " + (j.verdict||"");
   chat.appendChild(div); scrollBottom();
   addStateCard();
+  logIdea(text, feas0); /* 开档定案，采集这条创业想法 */
   G.history.length = 0; /* 开档定案，精简上下文 */
   G.phase = "round";
   setInput(false);
