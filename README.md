@@ -23,3 +23,7 @@
 - HTML / CSS / 原生 JavaScript（单文件）
 - WorkBuddy Cloud SDK（云端免密钥 LLM 调用，流式输出）
 - 自备 Key 模式：OpenAI 兼容 Chat Completions 接口（SSE 流式）
+
+## 关注公众号
+
+![公众号二维码](qrcode.jpg)
